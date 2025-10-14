@@ -63,6 +63,7 @@ static  OS_STK  StartupTaskStk[APP_CFG_STARTUP_TASK_STK_SIZE];
 *                                         FUNCTION PROTOTYPES
 *********************************************************************************************************
 */
+static void task(void* p_arg);
 static void task1(void* p_arg);
 static void task2(void* p_arg);
 static  void  StartupTask (void  *p_arg);
@@ -89,7 +90,6 @@ int  main (void)
     CPU_INT08U  os_err;
 #endif
 
-
     CPU_IntInit();
 
     Mem_Init();                                                 /* Initialize Memory Managment Module                   */
@@ -104,51 +104,43 @@ int  main (void)
 
     /*Dynamic Create the Stack size*/
     Task_STK = malloc(TASK_NUMBER * sizeof(int*));
+
+    /*M11102136 [PA3][PART-I]*/
+    RM_Info = malloc(TASK_NUMBER * sizeof(RMS_TASK_INFO));
+    Record = malloc(TASK_NUMBER * sizeof(Time_Info));
+    Resource1_UsedTaskID = -1; //初始化Resource
+    Resource2_UsedTaskID = -1; //初始化Resource
+    /*M11102136 [PA3][PART-I]*/
+    
     /*for each pointer, allocate storage for an array of ints*/
     int n;
     for (n = 0; n < TASK_NUMBER; n++) {
         Task_STK[n] = malloc(TASK_STACKSIZE * sizeof(int));
+        /*M11102136 [PA3][PART-I]*/
+        RM_Info[n].REMAIN_TIME          = 0;
+        RM_Info[n].Deadline             = 0;
+
+        Record[n].Finished_Job          = 0;
+        Record[n].Arrive_At_OS_TimeTick = 0;
+        Record[n].ResponseTime          = 0;
+        Record[n].PreemptionTime        = 0;
+        Record[n].OSTimeDly             = 0;
+
+        Record[n].BlockedTime           = 0;
+        Record[n].PreemptedTime         = 0;
+        OSTaskCreateExt(task,
+            &TaskParameter[n],
+            &Task_STK[n][TASK_STACKSIZE - 1],
+            TaskParameter[n].TaskPriority,
+            TaskParameter[n].TaskID,
+            &Task_STK[n][0],
+            TASK_STACKSIZE,
+            &TaskParameter[n],
+            (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR));
+        /*M11102136 [PA3][PART-I]*/
     }
-    OSTaskCreateExt(task1,
-        &TaskParameter[0],
-        &Task_STK[0][TASK_STACKSIZE - 1],
-        TaskParameter[0].TaskPriority,
-        TaskParameter[0].TaskID,
-        &Task_STK[0][0],
-        TASK_STACKSIZE,
-        &TaskParameter[0],
-        (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR));
 
-    OSTaskCreateExt(task2,
-        &TaskParameter[1],
-        &Task_STK[1][TASK_STACKSIZE - 1],
-        TaskParameter[1].TaskPriority,
-        TaskParameter[1].TaskID,
-        &Task_STK[1][0],
-        TASK_STACKSIZE,
-        &TaskParameter[1],
-        (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR));
-//    OSTaskCreateExt( StartupTask,                               /* Create the startup task                              */
-//                     0,
-//                    &StartupTaskStk[APP_CFG_STARTUP_TASK_STK_SIZE - 1u],
-//                     APP_CFG_STARTUP_TASK_PRIO,
-//                     APP_CFG_STARTUP_TASK_PRIO,
-//                    &StartupTaskStk[0u],
-//                     APP_CFG_STARTUP_TASK_STK_SIZE,
-//                     0u,
-//                    (OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR));
-//
-//#if OS_TASK_NAME_EN > 0u
-//    OSTaskNameSet(         APP_CFG_STARTUP_TASK_PRIO,
-//                  (INT8U *)"Startup Task",
-//                           &os_err);
-//#endif
-    printf("Tick\t\tCurrentTask ID\t\t\tNextTask ID\t\tNumber of ctx switches\n");
-    /*printf("OS Task Number = %d\n", OSTaskCtr);*/
-    
     OSStart();                                                  /* Start multitasking (i.e. give control to uC/OS-II)   */
-
-   
 
     while (DEF_ON) {                                            /* Should Never Get Here.                               */
         ;
@@ -171,6 +163,18 @@ int  main (void)
 *                  used.  The compiler should not generate any code for this statement.
 *********************************************************************************************************
 */
+
+/*M11102136 [PA1][PART-II]*/
+void task(void* p_arg) {
+    task_para_set* task_data;
+    task_data = p_arg;
+    while (1) {
+        //printf("Tick: %d, Hello from task%d, ID = %d\n", OSTime, task_data->TaskID, OSTCBCur->OSTCBId);
+        OSTimeDly(task_data->TaskPeriodic);
+    }
+}
+/*M11102136 [PA1][PART-II]*/
+
 void task1(void* p_arg) {
     task_para_set* task_data;
     task_data = p_arg;
